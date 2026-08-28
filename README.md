@@ -1,77 +1,110 @@
-# QML-qcnn-medmnist
+# Hybrid QCNN for PneumoniaMNIST
 
 [![CI](https://github.com/antoniomosca27/QML-qcnn-medmnist/actions/workflows/ci.yml/badge.svg)](https://github.com/antoniomosca27/QML-qcnn-medmnist/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-This repository provides the reference implementation for a **hybrid quantum–classical convolutional neural network (QCNN)** applied to **medMNIST image classification**, developed as a project for the **Quantum Machine Learning** course. The project is authored by **Antonio Mosca** and **Leonardo Tomei**.
+A reproducible hybrid quantum-classical image classifier for **pediatric pneumonia detection on PneumoniaMNIST**. The project combines a patch-based quantum feature extractor implemented with **Qiskit** and a compact **PyTorch** classifier.
 
-The code implements a patch-based quantum feature extraction pipeline using **Qiskit**, combined with classical training and evaluation using **PyTorch**. The repository is designed to support **reproducible experimentation**, command-line execution, and structured reporting.
+The central question is deliberately practical: **how much predictive performance can a very small hybrid QCNN retain relative to conventional deep networks?**
 
-**Exam report:** [`QML-exam.report.pdf`](QML-exam.report.pdf) is the report of the project presented for the QML exam and includes an in-depth discussion of architecture and results.
+> This is a research and educational proof of concept evaluated in simulation. It is not a clinical device.
 
----
+## Results at a glance
 
-## Scope
+| Item | Reported result |
+|---|---:|
+| Dataset | PneumoniaMNIST, 5,856 chest X-rays |
+| Test set | 624 images |
+| Trainable parameters | 205 |
+| Test accuracy | **80.9%** |
+| Pneumonia sensitivity | **97%** (380/390) |
+| Specificity | **53%** (125/234) |
+| ResNet-18 reference | 85.4% accuracy, 11.7M parameters |
+| Accuracy gap vs ResNet-18 | -4.5 percentage points |
 
-- Target datasets are from the **medMNIST** benchmark (e.g. `bloodmnist`).
-- Images are preprocessed into local patches processed by quantum circuits.
-- Quantum features are extracted at patch level and aggregated into a compact classifier.
-- Training, evaluation, and visualization are handled via modular CLIs.
-- The pipeline supports deterministic execution via explicit seeding.
+The model is therefore extremely compact—about **57,000× fewer trainable parameters than ResNet-18**—while preserving much of its classification accuracy. Its high sensitivity is paired with a substantial false-positive rate, so the result should be read as evidence of parameter efficiency, not clinical readiness.
 
----
-## Installation
+The full architecture, experimental protocol, confusion matrix, baselines, and interpretability analysis are documented in the [project report](QML-exam.report.pdf).
 
-Create and activate a virtual environment, then install the packages in editable mode:
+## What is implemented
+
+- medMNIST download, preprocessing, and deterministic train/validation splitting;
+- patch extraction and parameterized quantum feature generation with Qiskit;
+- hybrid quantum-classical training and evaluation with PyTorch;
+- run-specific metrics, checkpoints, confusion matrices, learning curves, predictions, and heatmaps;
+- command-line workflows plus an end-to-end notebook;
+- automated tests and continuous integration.
+
+## Reproduce the pipeline
+
+### 1. Install
 
 ```bash
+git clone https://github.com/antoniomosca27/QML-qcnn-medmnist.git
+cd QML-qcnn-medmnist
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
 ```
 
-## Quickstart
+On Windows PowerShell, activate the environment with:
 
-End-to-end execution using the provided command-line interfaces:
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+### 2. Run PneumoniaMNIST end to end
 
 ```bash
-qcnn-preprocess --dataset bloodmnist
-qcnn-train --dataset bloodmnist --epochs 5 --stride 3
-qcnn-report --dataset bloodmnist --logdir logs/bloodmnist_run_001 --stride 3
-qcnn-heatmap --dataset bloodmnist --logdir logs/bloodmnist_run_001 --idx 0 --stride 3
-qcnn-plot-curves --logdir logs/bloodmnist_run_001
+qcnn-preprocess --dataset pneumoniamnist
+qcnn-train --dataset pneumoniamnist --batch 32 --epochs 10 --lr 1e-3 --seed 42 --stride 3
+qcnn-report --dataset pneumoniamnist --logdir logs/pneumoniamnist_run_001 --stride 3
+qcnn-heatmap --dataset pneumoniamnist --logdir logs/pneumoniamnist_run_001 --idx 0 --stride 3
+qcnn-plot-curves --logdir logs/pneumoniamnist_run_001
 ```
 
-For `--logdir`, all analysis CLIs accept either:
-- a run directory path (absolute or relative), e.g. `logs/bloodmnist_run_001`;
-- a run folder name inside `--logs-dir`, e.g. `bloodmnist_run_001`.
+Analysis commands accept either a run path such as `logs/pneumoniamnist_run_001` or the run-folder name inside `--logs-dir`.
 
-## Repository Layout
-- `src/`: Python package source (`src.datasets`, `src.models`, `src.quantum`, `src.scripts`, `src.training`, `src.utils`).
-- `tests/`: automated test suite.
-- `notebooks/QML-qcnn-medmnist_pipeline.ipynb`: end-to-end workflow notebook.
-- `QML-exam.report.pdf`: project exam report document.
-- `pyproject.toml`: package metadata, dependencies, and CLI entry points.
+For an interactive workflow, open [`notebooks/QML-qcnn-medmnist_pipeline.ipynb`](notebooks/QML-qcnn-medmnist_pipeline.ipynb).
 
-## Runtime Outputs
-- `data/raw/`: downloaded medMNIST archives.
-- `data/processed/<dataset>/`: preprocessed tensors (`train.pt`, `val.pt`, `test.pt`).
-- `logs/<dataset>_run_XXX/`: run metrics and model checkpoints.
-- `reports/<dataset>_run_XXX/`: confusion matrix, heatmaps, learning curves, predictions, and report metadata.
+## Experimental interpretation
 
-`data/`, `logs/`, and `reports/` are runtime artifact directories and are ignored by Git, except for `.gitkeep` placeholders.
+The reported configuration uses a batch size of 32, learning rate of 10^-3, seed 42, and 10 epochs. The test confusion matrix contains 380 true positives, 10 false negatives, 109 false positives, and 125 true negatives.
+
+These results support two conclusions:
+
+1. the hybrid architecture achieves meaningful classification performance with only 205 trainable parameters;
+2. the current decision boundary favors sensitivity over specificity and requires broader validation, multiple seeds, and hardware experiments before stronger claims can be made.
+
+The heatmaps in the report provide a qualitative interpretability check, but they are exploratory rather than clinical evidence.
+
+## Repository layout
+
+```text
+src/        Python package: datasets, quantum layers, models, training, CLIs
+tests/      Automated unit and smoke tests
+notebooks/  End-to-end reproducible workflow
+logs/       Runtime metrics and checkpoints (ignored by Git)
+reports/    Runtime figures and report metadata (ignored by Git)
+```
+
+Key documents:
+
+- [`QML-exam.report.pdf`](QML-exam.report.pdf) — architecture, experiments, baselines, and discussion;
+- [`pyproject.toml`](pyproject.toml) — dependencies and CLI entry points.
 
 ## Reproducibility
-- Use `--seed` in CLI commands to initialize Python, NumPy, PyTorch, and Qiskit randomness.
-- `PYTHONHASHSEED` is set by the seed utility for deterministic hashing behavior.
-- Set `QCNN_CPUS` to control process-level parallelism in quantum convolution workers.
 
-## Developer
-- Remove local test/build artifacts with `bash scripts/clean_artifacts.sh`.
+- `--seed` initializes Python, NumPy, PyTorch, and Qiskit randomness.
+- Each experiment writes to a numbered run directory.
+- `QCNN_CPUS` controls process-level parallelism in quantum convolution workers.
+- GitHub Actions runs the automated quality checks.
 
-## Dataset Acknowledgment
-This project uses [medMNIST](https://medmnist.com/). Datasets are downloaded at runtime and are not tracked in version control.
+## Dataset
+
+This project uses [MedMNIST](https://medmnist.com/). Data are downloaded at runtime and are not committed to the repository.
 
 ## Authors
 
@@ -79,4 +112,6 @@ This project uses [medMNIST](https://medmnist.com/). Datasets are downloaded at 
 - Leonardo Tomei
 
 ## License
-This project is licensed under the MIT License.
+
+MIT — see [LICENSE](LICENSE).
+
